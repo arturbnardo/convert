@@ -1,7 +1,5 @@
-// Cotação de moedas do dia.
-const USD = 5.45
-const EUR = 6.39
-const GBP = 7.40
+// Chave da ExchangeRate API
+const API_KEY = 'c4bd3d740e4562e7eaaaee37'
 
 // Obtendo os elementos do formulário.
 const form = document.querySelector("form")
@@ -15,60 +13,70 @@ const result = document.getElementById("result")
 amount.addEventListener("input", () => {
   const hasCharactersRegex = /\D+/g
   amount.value = amount.value.replace(hasCharactersRegex, "")
-}) 
+})
 
-// Capturando o evento de submit do formulário.
-form.onsubmit = (event) => {
+// Evento de submit do formulário.
+form.onsubmit = async (event) => {
   event.preventDefault()
 
-  switch (currency.value){
-    case "USD":
-      convertCurrency(amount.value, USD, "US$")
-      break
-    case "EUR":
-      convertCurrency(amount.value, EUR, "€")
-      break
-    case "GBP":
-      convertCurrency(amount.value, GBP, "£")
-      break
+  const valorInput = amount.value
+  const moedaDestino = currency.value
+
+  if (!valorInput || !moedaDestino) {
+    alert("Preencha todos os campos.")
+    return
+  }
+
+  try {
+    const response = await fetch(`https://v6.exchangerate-api.com/v6/${API_KEY}/latest/${moedaDestino}`)
+    const data = await response.json()
+
+    if (data.result !== "success") {
+      throw new Error("Erro ao buscar taxas")
+    }
+
+    // A taxa é o valor de 1 unidade da moeda escolhida (USD/EUR/GBP) em BRL
+    const taxa = data.conversion_rates["BRL"]
+
+    // Define o símbolo
+    const simbolo = {
+      "USD": "US$",
+      "EUR": "€",
+      "GBP": "£"
+    }[moedaDestino] || ""
+
+    convertCurrency(valorInput, taxa, simbolo)
+
+  } catch (error) {
+    footer.classList.remove("show-result")
+    console.error(error)
+    alert("Erro ao buscar taxa de câmbio. Tente novamente mais tarde.")
   }
 }
 
-// Função para converter a moeda.
-
+// Função que realiza a conversão e atualiza o resultado
 function convertCurrency(amount, price, symbol){
   try {
-    // Exibindo a cotação da moeda selecionada.
-    description.textContent = `${symbol}1 = ${formatCurrencyBRL(price)}`
+    description.textContent = `${symbol} 1 = ${formatCurrencyBRL(price)}`
     
-    // Calcula o total. 
     let total = amount * price
 
-    // Verifica se o resultado não é um número.
     if(isNaN(total)){
       return alert("Por favor, digite o valor corretamente para converter")
     }
 
-    // Formatando o valor total.
     total = formatCurrencyBRL(total).replace("R$", "")
-    
-    // Exibe o resultado total.
-    result.textContent = total = `${total} Reais`
-
-    // Adiciona a classe que mostra o resultado da conversão.
+    result.textContent = `${total} Reais`
     footer.classList.add("show-result")
   } catch (error) {
-    // Remove a classe que mostra o resultado da conversão.
     footer.classList.remove("show-result")
-    
-    console.log(error)
-    alert("Não foi possivel converter. Tente novamente mais tarde.")
+    console.error(error)
+    alert("Erro ao processar a conversão.")
   }
 }
 
-// Formata a moeda em Real Brasileiro.
+// Formata para moeda brasileira
 function formatCurrencyBRL(value){
-  // Converte para número para utilizar o toLocaleString para formatar no padrão BRL (R$ 00,00).
   return Number(value).toLocaleString("pt-BR", {
     style: "currency",
     currency: "BRL"
